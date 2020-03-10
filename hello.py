@@ -11,6 +11,11 @@ from wtforms.validators import DataRequired
 import os
 # 引入sqlalchemy ORM
 from flask_sqlalchemy import SQLAlchemy
+# 引入数据库迁移库
+from flask_migrate import Migrate
+# 引入邮件库
+from flask_mail import Mail, Message
+from threading import Thread
 
 
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -20,9 +25,18 @@ app.config['SECRET_KEY'] = 'CallMeBigYe'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'data.sqlite')
 # 关闭追踪对象的修改
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['MAIL_SERVER'] = 'smtp.qq.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['FLASKY_MAIL_SUBJECT_PREFIX'] = '[Flasky]'
+app.config['FLASKY_MAIL_SENDER'] = 'Flasky Admin <42952619@qq.com>'
+app.config['FLASKY_ADMIN'] = os.environ.get('FLASKY_ADMIN')
 bootstrap = Bootstrap(app)
 moment = Moment(app)
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+mail = Mail(app)
 
 @app.route('/', methods=['GET', 'POST'])
 def index() -> 'html':
@@ -36,6 +50,8 @@ def index() -> 'html':
             db.session.add(user)
             db.session.commit()
             session['known'] = False
+            if app.config['FLASKY_ADMIN']:
+                send_email(app.config['FLASKY_ADMIN'], 'New User', 'mail/new_user', user=user)
         else:
             session['known'] = True
         session['name'] = form.name.data
@@ -55,6 +71,22 @@ def page_not_found(e) -> 'html':
 @app.errorhandler(500)
 def internal_server_error(e) -> 'html':
     return render_template('500.html'), 500
+
+def send_email(to, subject, template, **kwargs):
+    # 实例化邮件内容类，分别传入标题、发件人和收件人
+    msg = Message(subject=app.config['FLASKY_MAIL_SUBJECT_PREFIX'] + subject, 
+    sender=app.config['FLASKY_MAIL_SENDER'], recipients=[to])
+    msg.body = render_template(template + '.txt', **kwargs)
+    msg.html = render_template(template + '.html', **kwargs)
+    # 通过线程异步发送邮件
+    thr = Thread(target=send_async_email, args=[app, msg])
+    thr.start()
+    return thr
+
+# 异步发送邮件
+def send_async_email(app, msg):
+    with app.app_context():
+        mail.send(msg)
 
 # 定义表单类
 class NameForm(FlaskForm):
