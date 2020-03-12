@@ -1,3 +1,6 @@
+from . import db
+
+
 # 定义数据库表roles模型
 class Role(db.Model):
     # 定义数据库中的表名

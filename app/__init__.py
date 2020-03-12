@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask
 from flask_bootstrap import Bootstrap
 from flask_mail import Mail
 from flask_moment import Moment
@@ -21,7 +21,7 @@ def create_app(config_name):
     db.init_app(app)
 
     # 注册主蓝本。
-    from .main import main as mian_blueprint
+    from .main import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
     return app

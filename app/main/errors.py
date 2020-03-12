@@ -3,7 +3,7 @@ from . import main
 
 
 # app_errorhandler装饰器作用于全局。
-@mian.app_errorhandler(404)
+@main.app_errorhandler(404)
 def page_not_found(e) -> 'html':
     return render_template('404.html'), 404
 
