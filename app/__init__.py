@@ -20,4 +20,8 @@ def create_app(config_name):
     moment.init_app(app)
     db.init_app(app)
 
+    # 注册主蓝本。
+    from .main import main as mian_blueprint
+    app.register_blueprint(main_blueprint)
+
     return app
