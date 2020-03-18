@@ -1,6 +1,9 @@
 from . import db, login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
+# 生成令牌字符串库
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+from flask import current_app
 
 
 # 定义数据库表roles模型
@@ -29,6 +32,7 @@ class User(db.Model, UserMixin):
     # 建立外键，值为roles表的id列
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     password_hash = db.Column(db.String(128))
+    confirmed = db.Column(db.Boolean, default=False)
 
     # 装饰器将函数属性化,不允许读取password
     @property
@@ -43,6 +47,25 @@ class User(db.Model, UserMixin):
     # 比对密码与加密
     def verify_password(self, password) -> bool:
         return check_password_hash(self.password_hash, password)
+
+    # 生成令牌，默认有效期十五分钟
+    def generate_confirmation_token(self, expiration=900) -> 'token':
+        s = Serializer(current_app.config['SECRET_KEY'], expiration)
+        return s.dumps({'confirm': self.id}).decode('utf-8')
+
+    # 验证令牌
+    def confirm(self, token) -> bool:
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token.encode('utf-8'))
+        except:
+            return False
+        # 检查令牌中的用户ID与当前登录用户ID是否一致
+        if data.get('confirm') != self.id:
+            return False
+        self.confirmed = True
+        db.session.add(self)
+        return True
 
     def __repr__(self):
         # 返回具有可读性的字符串表示模型，供测试调试使用，非必须
