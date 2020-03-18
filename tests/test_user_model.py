@@ -61,3 +61,21 @@ class UserModelTestCase(unittest.TestCase):
         token = u.generate_confirmation_token(1)
         time.sleep(2)
         self.assertFalse(u.confirm(token))
+
+    # 验证重置密码令牌有效性
+    def test_valid_reset_token(self):
+        u = User(password='cat')
+        db.session.add(u)
+        db.session.commit()
+        token = u.generate_reset_token()
+        self.assertTrue(User.reset_password(token, 'dog'))
+        self.assertTrue(u.verify_password('dog'))
+
+    # 验证重置密码令牌无效性
+    def test_invalid_reset_token(self):
+        u = User(password='cat')
+        db.session.add(u)
+        db.session.commit()
+        token = u.generate_reset_token()
+        self.assertFalse(User.reset_password(token + 'a', 'horse'))
+        self.assertTrue(u.verify_password('cat'))

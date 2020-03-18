@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from . import auth
 from .. import db
 from ..models import User
-from .forms import LoginForm, RegistrationForm
+from .forms import LoginForm, RegistrationForm, ChangePasswordForm, PasswordResetForm, PasswordResetRequestForm
 from ..email import send_email
 
 
@@ -63,8 +63,54 @@ def confirm(token):
         flash('The confirmation link is invalid or has expired.')
     return redirect(url_for('main.index'))
 
+# 用户更改密码
+@auth.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password() -> 'html':
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        # 确认旧密码正确
+        if current_user.verify_password(form.old_password.data):
+            current_user.password = form.password.data
+            db.session.add(current_user)
+            db.session.commit()
+            flash('您的密码已更新')
+            return redirect(url_for('main.index'))
+        else:
+            flash('请输入正确的旧密码')
+    return render_template('auth/change_password.html', form=form)
 
-# 用户注册但未确认邮箱有效性
+# 用户重置密码
+@auth.route('/reset', methods=['GET', 'POST'])
+def password_reset_request() -> 'html':
+    if not current_user.is_anonymous:
+        return redirect(url_for('main.index'))
+    form = PasswordResetRequestForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data.lower()).first()
+        if user:
+            token = user.generate_reset_token()
+            send_email(user.email, 'Reset Your Password', 'auth/email/reset_password', user=user, token=token)
+        flash('An email with instructions to reset your password has been sent to you.')
+        return redirect(url_for('auth.login'))
+    return render_template('auth/reset_password.html', form=form)
+
+@auth.route('/reset/<token>', methods=['GET', 'POST'])
+def password_reset(token):
+    if not current_user.is_anonymous:
+        return redirect('main.index')
+    form = PasswordResetForm()
+    if form.validate_on_submit():
+        if User.reset_password(token, form.password.data):
+            db.session.commit()
+            flash('Your password has been updated.')
+            return redirect(url_for('auth.login'))
+        else:
+            flash('重置失败。')
+            return redirect(url_for('main.index'))
+    return render_template('auth/reset_password.html', form=form)
+
+# 拦截所有URL请求，先判断用户邮箱确认状态
 @auth.before_app_request
 def before_request():
     # 判断用户为登录状态且未确认邮件且请求的URL不在身份验证蓝本和静态文件中
