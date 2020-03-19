@@ -1,0 +1,11 @@
+亲爱的{{ user.username }}，
+
+更换你的邮箱地址：
+
+{{ url_for('auth.change_email_confirm', token=token, _external=True) }}
+
+如果您没有要求更换邮箱地址，请忽略此消息。
+
+叫我大烨
+
+注意：这封邮件是系统自动发出，请不要回复。

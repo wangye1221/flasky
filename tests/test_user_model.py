@@ -79,3 +79,19 @@ class UserModelTestCase(unittest.TestCase):
         token = u.generate_reset_token()
         self.assertFalse(User.reset_password(token + 'a', 'horse'))
         self.assertTrue(u.verify_password('cat'))
+
+    # 验证更新邮箱令牌有效性
+    def test_valid_change_email_token(self):
+        u = User(password='cat')
+        db.session.add(u)
+        db.session.commit()
+        token = u.generate_change_email_token('123@456.com')
+        self.assertTrue(u.change_email_confirm(token))
+
+    # 验证更新邮箱令牌无效性
+    def test_invalid_change_email_token(self):
+        u = User(password='cat')
+        db.session.add(u)
+        db.session.commit()
+        token = u.generate_change_email_token('123@456.com')
+        self.assertFalse(u.change_email_confirm(token + 'a'))

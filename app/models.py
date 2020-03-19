@@ -87,6 +87,25 @@ class User(db.Model, UserMixin):
         db.session.add(user)
         return True
 
+    # 生成更换邮箱的令牌
+    def generate_change_email_token(self, new_email, expiration=900) -> 'token':
+        s = Serializer(current_app.config['SECRET_KEY'], expiration)
+        return s.dumps({'change': self.id, 'new_email': new_email}).decode('utf-8')
+    
+    # 验证令牌
+    def change_email_confirm(self, token) -> bool:
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token.encode('utf-8'))
+        except:
+            return False
+        # 检查令牌中的用户ID与当前登录用户ID是否一致
+        if data.get('change') != self.id:
+            return False
+        self.email = data.get('new_email')
+        db.session.add(self)
+        return True
+
     def __repr__(self):
         # 返回具有可读性的字符串表示模型，供测试调试使用，非必须
         return '<User %r>' % self.username

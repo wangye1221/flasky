@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from . import auth
 from .. import db
 from ..models import User
-from .forms import LoginForm, RegistrationForm, ChangePasswordForm, PasswordResetForm, PasswordResetRequestForm
+from .forms import LoginForm, RegistrationForm, ChangePasswordForm, PasswordResetForm, PasswordResetRequestForm, ChangeEmailForm
 from ..email import send_email
 
 
@@ -63,6 +63,18 @@ def confirm(token):
         flash('The confirmation link is invalid or has expired.')
     return redirect(url_for('main.index'))
 
+# 用户注册生成令牌
+@auth.route('/confirm')
+@login_required
+def resend_confirmation():
+    if current_user.confirmed:
+        flash("You've confirmed it")
+        return redirect(url_for('main.index'))
+    token = current_user.generate_confirmation_token()
+    send_email(current_user.email, 'Confirm Your Account', 'auth/email/confirm', user=current_user, token=token)
+    flash('A new confirmation email has been sent to you by email.')
+    return redirect(url_for('main.index'))
+
 # 用户更改密码
 @auth.route('/change_password', methods=['GET', 'POST'])
 @login_required
@@ -95,6 +107,7 @@ def password_reset_request() -> 'html':
         return redirect(url_for('auth.login'))
     return render_template('auth/reset_password.html', form=form)
 
+# 用户重置密码，验证令牌
 @auth.route('/reset/<token>', methods=['GET', 'POST'])
 def password_reset(token):
     if not current_user.is_anonymous:
@@ -109,6 +122,30 @@ def password_reset(token):
             flash('重置失败。')
             return redirect(url_for('main.index'))
     return render_template('auth/reset_password.html', form=form)
+
+# 用户更改email地址
+@auth.route('/change_email', methods=['GET', 'POST'])
+@login_required
+def change_email():
+    form = ChangeEmailForm()
+    if form.validate_on_submit():
+        token = current_user.generate_change_email_token(form.email.data)
+        send_email(form.email.data, '更换你的邮箱', 'auth/email/change_email', user=current_user, token=token)
+        flash('一封确认邮件已经发送到您的新邮箱中，请及时查收并确认。')
+        return redirect(url_for('main.index'))
+    return render_template('auth/change_email.html', form=form)
+
+# 用户更改email令牌验证
+@auth.route('/change_email/<token>')
+@login_required
+def change_email_confirm(token):
+    # 判断令牌有效性
+    if current_user.change_email_confirm(token):
+        db.session.commit()
+        flash('你的邮箱已经更新成功！')
+    else:
+        flash('The confirmation link is invalid or has expired.')
+    return redirect(url_for('main.index'))
 
 # 拦截所有URL请求，先判断用户邮箱确认状态
 @auth.before_app_request
@@ -125,15 +162,3 @@ def unconfirmed():
     if current_user.is_anonymous or current_user.confirmed:
         return redirect(url_for('main.index'))
     return render_template('auth/unconfirmed.html')
-
-@auth.route('/confirm')
-@login_required
-def resend_confirmation():
-    if current_user.confirmed:
-        flash("You've confirmed it")
-        return redirect(url_for('main.index'))
-    token = current_user.generate_confirmation_token()
-    send_email(current_user.email, 'Confirm Your Account', 'auth/email/confirm', user=current_user, token=token)
-    flash('A new confirmation email has been sent to you by email.')
-    return redirect(url_for('main.index'))
-

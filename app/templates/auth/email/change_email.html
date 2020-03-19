@@ -1,0 +1,7 @@
+<p>亲爱的{{ user.username }}，</p>
+<p>更换你的邮箱地址 <a href="{{ url_for('auth.change_email_confirm', token=token, _external=True) }}">点击这里</a>。</p>
+<p>你也可以在浏览器地址栏中粘贴以下链接：</p>
+<p>{{ url_for('auth.change_email_confirm', token=token, _external=True) }}</p>
+<p>如果您没有要求更换邮箱地址，请忽略此消息。</p>
+<p>叫我大烨</p>
+<p><small>注意：这封邮件是系统自动发出，请不要回复。</small></p>
